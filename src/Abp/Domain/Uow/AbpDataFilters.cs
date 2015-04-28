@@ -29,8 +29,6 @@ namespace Abp.Domain.Uow
         /// </summary>
         public const string MayHaveTenant = "MayHaveTenant";
 
-      
-
         /// <summary>
         /// Standard parameters of ABP.
         /// </summary>
@@ -40,11 +38,6 @@ namespace Abp.Domain.Uow
             /// "tenantId".
             /// </summary>
             public const string TenantId = "tenantId";
-
-            /// <summary>
-            /// "UserTenants".
-            /// </summary>
-            public const string UserTenants = "userTenants";
         }
     }
 }
