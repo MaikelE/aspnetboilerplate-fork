@@ -1,8 +1,8 @@
-﻿using System;
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.Data.Entity;
 using System.Data.Entity.Core.Objects;
 using System.Data.Entity.Infrastructure;
+using System.Data.Entity.Validation;
 using System.Threading;
 using System.Threading.Tasks;
 using Abp.Configuration.Startup;
@@ -137,10 +137,12 @@ namespace Abp.EntityFramework
                 {
                     case EntityState.Added:
                         SetCreationAuditProperties(entry);
+                        CheckAndSetTenantIdProperty(entry);
                         EntityChangedEventHelper.TriggerEntityCreatedEvent(entry.Entity);
                         break;
                     case EntityState.Modified:
                         PreventSettingCreationAuditProperties(entry);
+                        CheckAndSetTenantIdProperty(entry);
                         SetModificationAuditProperties(entry);
 
                         if (entry.Entity is ISoftDelete && entry.Entity.As<ISoftDelete>().IsDeleted)
@@ -164,6 +166,64 @@ namespace Abp.EntityFramework
                         EntityChangedEventHelper.TriggerEntityDeletedEvent(entry.Entity);
                         break;
                 }
+            }
+        }
+
+        private void CheckAndSetTenantIdProperty(DbEntityEntry entry)
+        {
+            if (entry.Entity is IMustHaveTenant)
+            {
+                CheckAndSetMustHaveTenant(entry);
+            }
+            else if (entry.Entity is IMayHaveTenant)
+            {
+                CheckMayHaveTenant(entry);
+            }
+        }
+
+        private void CheckAndSetMustHaveTenant(DbEntityEntry entry)
+        {
+            var tenantEntity = entry.Cast<IMustHaveTenant>().Entity;
+
+            if (!this.IsFilterEnabled(AbpDataFilters.MustHaveTenant))
+            {
+                if (AbpSession.TenantId != null && tenantEntity.TenantId == 0)
+                {
+                    tenantEntity.TenantId = AbpSession.GetTenantId();
+                }
+
+                return;
+            }
+
+            var currentTenantId = (int)this.GetFilterParameterValue(AbpDataFilters.MustHaveTenant, AbpDataFilters.Parameters.TenantId);
+
+            if (currentTenantId == 0)
+            {
+                throw new DbEntityValidationException("Can not save a IMustHaveTenant entity while MustHaveTenant filter is enabled and current filter parameter value is not set (Probably, no tenant user logged in)!");
+            }
+
+            if (tenantEntity.TenantId == 0)
+            {
+                tenantEntity.TenantId = currentTenantId;
+            }
+            else if (tenantEntity.TenantId != currentTenantId)
+            {
+                throw new DbEntityValidationException("Can not set IMustHaveTenant.TenantId to a different value than current tenant's Id while MustHaveTenant filter is enabled!");
+            }
+        }
+
+        private void CheckMayHaveTenant(DbEntityEntry entry)
+        {
+            if (!this.IsFilterEnabled(AbpDataFilters.MayHaveTenant))
+            {
+                return;
+            }
+
+            var currentTenantId = (int?)this.GetFilterParameterValue(AbpDataFilters.MayHaveTenant, AbpDataFilters.Parameters.TenantId);
+
+            if (entry.Cast<IMayHaveTenant>().Entity.TenantId != currentTenantId)
+            {
+                throw new DbEntityValidationException("Can not set TenantId to a different value from the current filter parameter value while MayHaveTenant filter is enabled!");
             }
         }
 
