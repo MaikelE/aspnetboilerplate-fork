@@ -129,7 +129,7 @@ namespace Abp.EntityFramework
             return base.SaveChangesAsync(cancellationToken);
         }
 
-        private void ApplyAbpConcepts()
+        protected virtual void ApplyAbpConcepts()
         {
             foreach (var entry in ChangeTracker.Entries())
             {
@@ -169,7 +169,7 @@ namespace Abp.EntityFramework
             }
         }
 
-        private void CheckAndSetTenantIdProperty(DbEntityEntry entry)
+        protected virtual void CheckAndSetTenantIdProperty(DbEntityEntry entry)
         {
             if (entry.Entity is IMustHaveTenant)
             {
@@ -181,15 +181,15 @@ namespace Abp.EntityFramework
             }
         }
 
-        private void CheckAndSetMustHaveTenant(DbEntityEntry entry)
+        protected virtual void CheckAndSetMustHaveTenant(DbEntityEntry entry)
         {
-            var tenantEntity = entry.Cast<IMustHaveTenant>().Entity;
+            var entity = entry.Cast<IMustHaveTenant>().Entity;
 
             if (!this.IsFilterEnabled(AbpDataFilters.MustHaveTenant))
             {
-                if (AbpSession.TenantId != null && tenantEntity.TenantId == 0)
+                if (AbpSession.TenantId != null && entity.TenantId == 0)
                 {
-                    tenantEntity.TenantId = AbpSession.GetTenantId();
+                    entity.TenantId = AbpSession.GetTenantId();
                 }
 
                 return;
@@ -202,17 +202,17 @@ namespace Abp.EntityFramework
                 throw new DbEntityValidationException("Can not save a IMustHaveTenant entity while MustHaveTenant filter is enabled and current filter parameter value is not set (Probably, no tenant user logged in)!");
             }
 
-            if (tenantEntity.TenantId == 0)
+            if (entity.TenantId == 0)
             {
-                tenantEntity.TenantId = currentTenantId;
+                entity.TenantId = currentTenantId;
             }
-            else if (tenantEntity.TenantId != currentTenantId)
+            else if (entity.TenantId != currentTenantId && entity.TenantId != AbpSession.TenantId)
             {
-                throw new DbEntityValidationException("Can not set IMustHaveTenant.TenantId to a different value than current tenant's Id while MustHaveTenant filter is enabled!");
+                throw new DbEntityValidationException("Can not set IMustHaveTenant.TenantId to a different value than the current filter parameter value or IAbpSession.TenantId while MustHaveTenant filter is enabled!");
             }
         }
 
-        private void CheckMayHaveTenant(DbEntityEntry entry)
+        protected virtual void CheckMayHaveTenant(DbEntityEntry entry)
         {
             if (!this.IsFilterEnabled(AbpDataFilters.MayHaveTenant))
             {
@@ -221,13 +221,15 @@ namespace Abp.EntityFramework
 
             var currentTenantId = (int?)this.GetFilterParameterValue(AbpDataFilters.MayHaveTenant, AbpDataFilters.Parameters.TenantId);
 
-            if (entry.Cast<IMayHaveTenant>().Entity.TenantId != currentTenantId)
+            var entity = entry.Cast<IMayHaveTenant>().Entity;
+
+            if (entity.TenantId != currentTenantId && entity.TenantId != AbpSession.TenantId)
             {
-                throw new DbEntityValidationException("Can not set TenantId to a different value from the current filter parameter value while MayHaveTenant filter is enabled!");
+                throw new DbEntityValidationException("Can not set TenantId to a different value than the current filter parameter value or IAbpSession.TenantId while MayHaveTenant filter is enabled!");
             }
         }
 
-        private void SetCreationAuditProperties(DbEntityEntry entry)
+        protected virtual void SetCreationAuditProperties(DbEntityEntry entry)
         {
             if (entry.Entity is IHasCreationTime)
             {
@@ -240,7 +242,7 @@ namespace Abp.EntityFramework
             }
         }
 
-        private void PreventSettingCreationAuditProperties(DbEntityEntry entry)
+        protected virtual void PreventSettingCreationAuditProperties(DbEntityEntry entry)
         {
             //TODO@Halil: Implement this when tested well (Issue #49)
             //if (entry.Entity is IHasCreationTime && entry.Cast<IHasCreationTime>().Property(e => e.CreationTime).IsModified)
@@ -254,7 +256,7 @@ namespace Abp.EntityFramework
             //}
         }
 
-        private void SetModificationAuditProperties(DbEntityEntry entry)
+        protected virtual void SetModificationAuditProperties(DbEntityEntry entry)
         {
             if (entry.Entity is IModificationAudited)
             {
@@ -265,7 +267,7 @@ namespace Abp.EntityFramework
             }
         }
 
-        private void HandleSoftDelete(DbEntityEntry entry)
+        protected virtual void HandleSoftDelete(DbEntityEntry entry)
         {
             if (!(entry.Entity is ISoftDelete))
             {
@@ -283,7 +285,7 @@ namespace Abp.EntityFramework
             }
         }
 
-        private void SetDeletionAuditProperties(IDeletionAudited entity)
+        protected virtual void SetDeletionAuditProperties(IDeletionAudited entity)
         {
             entity.DeletionTime = Clock.Now;
             entity.DeleterUserId = AbpSession.UserId;
