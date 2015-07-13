@@ -64,26 +64,26 @@ namespace Abp.EntityFramework.Dependency
                 }
             }
             else
-            {
+        {
                 //Userclasses
-                if (iocResolver.IsRegistered<IAbpStartupConfiguration>())
+            if (iocResolver.IsRegistered<IAbpStartupConfiguration>())
+            {
+                var defaultConnectionString = iocResolver.Resolve<IAbpStartupConfiguration>().DefaultNameOrConnectionString;
+                if (!string.IsNullOrWhiteSpace(defaultConnectionString))
                 {
-                    var defaultConnectionString = iocResolver.Resolve<IAbpStartupConfiguration>().DefaultNameOrConnectionString;
-                    if (!string.IsNullOrWhiteSpace(defaultConnectionString))
-                    {
-                        return defaultConnectionString;
-                    }
+                    return defaultConnectionString;
                 }
+            }
 
-                if (ConfigurationManager.ConnectionStrings.Count == 1)
-                {
-                    return ConfigurationManager.ConnectionStrings[0].Name;
-                }
+            if (ConfigurationManager.ConnectionStrings.Count == 1)
+            {
+                return ConfigurationManager.ConnectionStrings[0].Name;
+            }
 
-                if (ConfigurationManager.ConnectionStrings["Default"] != null)
-                {
-                    return "Default";
-                }
+            if (ConfigurationManager.ConnectionStrings["Default"] != null)
+            {
+                return "Default";
+            }
             }
             return null;
         }
